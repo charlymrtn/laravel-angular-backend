@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\ResetPasswordMail;
 use Carbon\Carbon;
 use DB;
+use App\Http\Requests\ResetPasswordRequest;
 
 class ResetPasswordController extends Controller
 {
@@ -68,5 +69,35 @@ class ResetPasswordController extends Controller
         ], Response::HTTP_OK);
     }
 
-    public function resetPassword(){}
+    public function resetPassword(ResetPasswordRequest $request){
+        return $this->getPasswordResetTableRow($request)->count() > 0 ? $this->updatePassword($request) : $this->tokenNotFound();
+    }
+
+    private function getPasswordResetTableRow($request){
+        return DB::table('password_resets')->where([
+            'email' => $request->email,
+            'token' => $request->resetToken
+            ]);
+    }
+
+    private function updatePassword($request){
+
+        $user = User::whereEmail($request->email)->first();
+
+        $user->update([
+            'password' => $request->password
+        ]);
+
+        $this->getPasswordResetTableRow($request)->delete();
+
+        return response()->json([
+            'data' => 'Password Successfully Changed'
+        ],Response::HTTP_CREATED);
+    }
+
+    private function tokenNotFound(){
+        return response()->json([
+            'error' => 'token or email is incorrect'
+        ], Response::HTTP_NOT_FOUND);
+    }
 }
