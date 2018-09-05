@@ -7,6 +7,8 @@ use Symfony\Component\HttpFoundation\Response;
 use App\User;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\ResetPasswordMail;
+use Carbon\Carbon;
+use DB;
 
 class ResetPasswordController extends Controller
 {
@@ -22,7 +24,32 @@ class ResetPasswordController extends Controller
     }
 
     public function send($email){
-        Mail::to($email)->send(new ResetPasswordMail);
+
+        $token = $this->createToken($email);
+
+        Mail::to($email)->send(new ResetPasswordMail($token));
+    }
+
+    public function createToken($email){
+
+        $oldToken = DB::table('password_resets')->where('email',$email)->first();
+
+        if ($oldToken) {
+            return $oldToken;
+        }
+
+        $token = str_random(60);
+        $this->saveToken($token,$email);
+        return $token;
+    }
+
+    public function saveToken($token,$email){
+
+        DB::table('password_resets')->insert([
+            'email' => $email,
+            'token' => $token,
+            'created_at' => Carbon::now()
+        ]);
     }
 
     public function validateEmail($email){
@@ -40,4 +67,6 @@ class ResetPasswordController extends Controller
             'data' => 'email link was send, check your email inbox'
         ], Response::HTTP_OK);
     }
+
+    public function resetPassword(){}
 }
